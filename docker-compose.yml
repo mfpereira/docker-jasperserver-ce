@@ -2,7 +2,9 @@ version: '3'
 
 services:
   jasperserver:
-    image: agois/jasperserver-ce:6.4.2
+    #image: agois/jasperserver-ce:6.4.2
+    build:
+      context: .
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -19,10 +21,12 @@ services:
       - reportsnet
 
   jasperdatabase:
-    image: postgres:9.5
-    env_file: .env
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    image: mysql:5.7
+    expose: 
+      - "3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: jasperserver
     networks:
       - reportsnet
 
@@ -30,7 +34,6 @@ networks:
   reportsnet:
 
 volumes:
-  pgdata:
   jasper_webapp:
   jasper_license:
   jasper_customization:

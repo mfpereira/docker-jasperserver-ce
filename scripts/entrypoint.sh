@@ -17,11 +17,11 @@
 set -e
 
 setup_jasperserver() {
-  # If environment is not set, uses default values for postgres
-  DB_USER=${DB_USER:-postgres}
-  DB_PASSWORD=${DB_PASSWORD:-postgres}
-  DB_HOST=${DB_HOST:-postgres}
-  DB_PORT=${DB_PORT:-5432}
+  # If environment is not set, uses default values for database
+  DB_USER=${DB_USER:-root}
+  DB_PASSWORD=${DB_PASSWORD:-password123}
+  DB_HOST=${DB_HOST:-127.0.0.1}
+  DB_PORT=${DB_PORT:-3306}
   DB_NAME=${DB_NAME:-jasperserver}
 
   # Simple default_master.properties. Modify according to
@@ -30,7 +30,7 @@ setup_jasperserver() {
 <<-_EOL_
 appServerType=tomcat8
 appServerDir=$CATALINA_HOME
-dbType=postgresql
+dbType=mysql
 dbHost=$DB_HOST
 dbUsername=$DB_USER
 dbPassword=$DB_PASSWORD
@@ -102,8 +102,8 @@ run_jasperserver() {
   fi
 
     
-  # Wait for PostgreSQL.
-  retry_postgresql
+  # Wait for database.
+  retry_database
 
   # Force regeneration of database configuration if variable is set.
   # This supports changes to DB configuration for already created
@@ -113,8 +113,7 @@ run_jasperserver() {
   fi
  
   # Set up jasperserver database if it is not present.
-  if [[ `test_postgresql -l | grep -i ${DB_NAME:-jasperserver} | wc -l` < 1 \
-    ]]; then
+  if ! test_database; then
     setup_jasperserver set-ce-webapp-name \
       create-js-db \
       init-js-db-ce \
@@ -141,8 +140,8 @@ run_jasperserver() {
 }
 
 init_database() {
-  # Wait for PostgreSQL.
-  retry_postgresql
+  # Wait for database.
+  retry_database
   # Run-only db creation targets.
   setup_jasperserver create-js-db init-js-db-ce import-minimal-ce
 }
@@ -162,21 +161,26 @@ config_license() {
   fi
 }
 
-test_postgresql() {
-  export PGPASSWORD=${DB_PASSWORD:-postgres}
-  psql -h ${DB_HOST:-postgres} -p ${DB_PORT:-5432} -U ${DB_USER:-postgres} ${DB_NAME:-jasperserver} $@
+test_database() {
+  mysql --host ${DB_HOST:-127.0.0.1} --port ${DB_PORT:-3306} --user ${DB_USER:-root} -p${DB_PASSWORD:-password123} -e 'use '${DB_NAME:-jasperserver}''
 }
 
-retry_postgresql() {
-  # Retry 5 times to check PostgreSQL is accessible.
+retry_database() {
+  # Retry 5 times to check database is accessible.
   for retry in {1..5}; do
-    test_postgresql && echo "PostgreSQL accepting connections" && break || \
-      echo "Waiting for PostgreSQL..." && sleep 10;
+    if ! test_database; 
+    then
+      echo "Waiting for database...";
+      sleep 10;
+    else
+      echo "Database accepting connections";
+      break;
+    fi  
   done
 
-  # Fail if PostgreSQL is not accessible
-  test_postgresql || \
-    echo "Error: PostgreSQL on ${DB_HOST:-postgres} not accessible!"
+  # Fail if database is not accessible
+  test_database || \
+    echo "Error: database on ${DB_HOST:-127.0.0.1} not accessible!"
 }
 
 config_phantomjs() {
